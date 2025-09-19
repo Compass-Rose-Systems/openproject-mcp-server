@@ -370,6 +370,79 @@ Get detailed information about a specific role.
 **Parameters:**
 - `role_id` (integer, required): Role ID
 
+#### 33. `set_work_package_parent`
+Set a parent for a work package (create parent-child relationship).
+
+**Parameters:**
+- `work_package_id` (integer, required): Work package ID to become a child
+- `parent_id` (integer, required): Work package ID to become the parent
+
+**Example:**
+```
+Set work package 15 as a child of work package 10
+```
+
+#### 34. `remove_work_package_parent`
+Remove parent relationship from a work package (make it top-level).
+
+**Parameters:**
+- `work_package_id` (integer, required): Work package ID to remove parent from
+
+#### 35. `list_work_package_children`
+List all child work packages of a parent.
+
+**Parameters:**
+- `parent_id` (integer, required): Parent work package ID
+- `include_descendants` (boolean, optional): Include grandchildren and all descendants (default: false)
+
+**Example:**
+```
+List all children of work package 10 including descendants
+```
+
+#### 36. `create_work_package_relation`
+Create a relationship between work packages.
+
+**Parameters:**
+- `from_id` (integer, required): Source work package ID
+- `to_id` (integer, required): Target work package ID
+- `relation_type` (string, required): Relation type (blocks, follows, precedes, relates, duplicates, includes, requires, partof)
+- `lag` (integer, optional): Lag in working days (for follows/precedes)
+- `description` (string, optional): Optional description of the relation
+
+**Example:**
+```
+Create a "blocks" relation where work package 5 blocks work package 8
+```
+
+#### 37. `list_work_package_relations`
+List work package relations with optional filtering.
+
+**Parameters:**
+- `work_package_id` (integer, optional): Filter relations involving this work package ID
+- `relation_type` (string, optional): Filter by relation type
+
+#### 38. `update_work_package_relation`
+Update an existing work package relation.
+
+**Parameters:**
+- `relation_id` (integer, required): Relation ID
+- `relation_type` (string, optional): New relation type
+- `lag` (integer, optional): Lag in working days
+- `description` (string, optional): Optional description
+
+#### 39. `delete_work_package_relation`
+Delete a work package relation.
+
+**Parameters:**
+- `relation_id` (integer, required): Relation ID
+
+#### 40. `get_work_package_relation`
+Get detailed information about a specific work package relation.
+
+**Parameters:**
+- `relation_id` (integer, required): Relation ID
+
 ## Development
 
 ### Running Tests
@@ -387,7 +460,7 @@ flake8 openproject-mcp.py
 
 ## Tool Compatibility & Test Results
 
-### ✅ Fully Working Tools (31/33)
+### ✅ Fully Working Tools (39/41)
 All these tools have been tested and work correctly with admin privileges:
 
 **Core Project Management:**
@@ -397,6 +470,11 @@ All these tools have been tested and work correctly with admin privileges:
 **Work Package Management:**
 - `list_work_packages`, `list_types`, `create_work_package`, `update_work_package`
 - `delete_work_package`, `get_work_package`, `list_statuses`, `list_priorities`
+
+**Work Package Hierarchy & Relations:**
+- `set_work_package_parent`, `remove_work_package_parent`, `list_work_package_children`
+- `create_work_package_relation`, `list_work_package_relations`, `update_work_package_relation`
+- `delete_work_package_relation`, `get_work_package_relation`
 
 **User & Membership Management:**
 - `list_users`, `get_user`, `create_membership`, `update_membership`, `delete_membership`
@@ -424,6 +502,7 @@ All these tools have been tested and work correctly with admin privileges:
 Most create/update/delete operations require appropriate permissions:
 - **Project Operations**: Require global "Create project" and "Edit project" permissions. Deletion typically requires admin rights
 - **Work Package Operations**: Require "Create/Edit work packages" permission in target projects
+- **Work Package Relations & Hierarchy**: Require "Edit work packages" permission for creating/modifying parent-child relationships and dependencies
 - **Membership Management**: Require "Manage members" permission for target projects
 - **Time Entry Operations**: Require time tracking permissions
 - **Version Management**: Require project admin or version management permissions

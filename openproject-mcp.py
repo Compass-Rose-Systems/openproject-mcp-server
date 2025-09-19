@@ -871,6 +871,198 @@ class OpenProjectClient:
         """
         return await self._request("GET", f"/memberships/{membership_id}")
 
+    async def set_work_package_parent(self, work_package_id: int, parent_id: int) -> Dict:
+        """
+        Set a parent for a work package (create parent-child relationship).
+
+        Args:
+            work_package_id: The work package ID to become a child
+            parent_id: The work package ID to become the parent
+
+        Returns:
+            Dict: Updated work package data
+        """
+        # First get current work package to get lock version
+        try:
+            current_wp = await self.get_work_package(work_package_id)
+            lock_version = current_wp.get("lockVersion", 0)
+        except:
+            lock_version = 0
+
+        # Prepare payload with parent link
+        payload = {
+            "lockVersion": lock_version,
+            "_links": {
+                "parent": {"href": f"/api/v3/work_packages/{parent_id}"}
+            }
+        }
+
+        return await self._request("PATCH", f"/work_packages/{work_package_id}", payload)
+
+    async def remove_work_package_parent(self, work_package_id: int) -> Dict:
+        """
+        Remove parent relationship from a work package (make it top-level).
+
+        Args:
+            work_package_id: The work package ID to remove parent from
+
+        Returns:
+            Dict: Updated work package data
+        """
+        # First get current work package to get lock version
+        try:
+            current_wp = await self.get_work_package(work_package_id)
+            lock_version = current_wp.get("lockVersion", 0)
+        except:
+            lock_version = 0
+
+        # Prepare payload with null parent link
+        payload = {
+            "lockVersion": lock_version,
+            "_links": {
+                "parent": None
+            }
+        }
+
+        return await self._request("PATCH", f"/work_packages/{work_package_id}", payload)
+
+    async def list_work_package_children(self, parent_id: int, include_descendants: bool = False) -> Dict:
+        """
+        List all child work packages of a parent.
+
+        Args:
+            parent_id: The parent work package ID
+            include_descendants: If True, includes grandchildren and below
+
+        Returns:
+            Dict: API response containing child work packages
+        """
+        if include_descendants:
+            # Use descendants filter to get all levels
+            filters = json.dumps([{"descendantsOf": {"operator": "=", "values": [str(parent_id)]}}])
+        else:
+            # Use parent filter to get direct children only
+            filters = json.dumps([{"parent": {"operator": "=", "values": [str(parent_id)]}}])
+
+        endpoint = f"/work_packages?filters={quote(filters)}"
+        result = await self._request("GET", endpoint)
+
+        # Ensure proper response structure
+        if "_embedded" not in result:
+            result["_embedded"] = {"elements": []}
+        elif "elements" not in result.get("_embedded", {}):
+            result["_embedded"]["elements"] = []
+
+        return result
+
+    async def create_work_package_relation(self, data: Dict) -> Dict:
+        """
+        Create a relationship between work packages.
+
+        Args:
+            data: Relation data including from_id, to_id, relation_type, lag
+
+        Returns:
+            Dict: Created relation data
+        """
+        # Prepare payload
+        payload = {"_links": {}}
+
+        # Set required fields
+        if "from_id" in data:
+            payload["_links"]["from"] = {"href": f"/api/v3/work_packages/{data['from_id']}"}
+        if "to_id" in data:
+            payload["_links"]["to"] = {"href": f"/api/v3/work_packages/{data['to_id']}"}
+        if "relation_type" in data:
+            payload["type"] = data["relation_type"]
+        if "lag" in data:
+            payload["lag"] = data["lag"]
+        if "description" in data:
+            payload["description"] = data["description"]
+
+        return await self._request("POST", "/relations", payload)
+
+    async def list_work_package_relations(self, filters: Optional[str] = None) -> Dict:
+        """
+        List work package relations.
+
+        Args:
+            filters: Optional JSON-encoded filter string
+
+        Returns:
+            Dict: API response containing relations
+        """
+        endpoint = "/relations"
+        if filters:
+            encoded_filters = quote(filters)
+            endpoint += f"?filters={encoded_filters}"
+
+        result = await self._request("GET", endpoint)
+
+        # Ensure proper response structure
+        if "_embedded" not in result:
+            result["_embedded"] = {"elements": []}
+        elif "elements" not in result.get("_embedded", {}):
+            result["_embedded"]["elements"] = []
+
+        return result
+
+    async def update_work_package_relation(self, relation_id: int, data: Dict) -> Dict:
+        """
+        Update an existing work package relation.
+
+        Args:
+            relation_id: The relation ID
+            data: Update data including fields to modify
+
+        Returns:
+            Dict: Updated relation data
+        """
+        # First get current relation to get lock version if needed
+        try:
+            current_relation = await self.get_work_package_relation(relation_id)
+            lock_version = current_relation.get("lockVersion", 0)
+        except:
+            lock_version = 0
+
+        # Prepare payload with lock version
+        payload = {"lockVersion": lock_version}
+
+        # Add fields to update
+        if "relation_type" in data:
+            payload["type"] = data["relation_type"]
+        if "lag" in data:
+            payload["lag"] = data["lag"]
+        if "description" in data:
+            payload["description"] = data["description"]
+
+        return await self._request("PATCH", f"/relations/{relation_id}", payload)
+
+    async def delete_work_package_relation(self, relation_id: int) -> bool:
+        """
+        Delete a work package relation.
+
+        Args:
+            relation_id: The relation ID
+
+        Returns:
+            bool: True if successful
+        """
+        await self._request("DELETE", f"/relations/{relation_id}")
+        return True
+
+    async def get_work_package_relation(self, relation_id: int) -> Dict:
+        """
+        Retrieve a specific work package relation by ID.
+
+        Args:
+            relation_id: The relation ID
+
+        Returns:
+            Dict: Relation data
+        """
+        return await self._request("GET", f"/relations/{relation_id}")
+
 
 class OpenProjectMCPServer:
     """MCP Server for OpenProject integration"""
@@ -1498,6 +1690,161 @@ class OpenProjectMCPServer:
                             }
                         },
                         "required": ["role_id"]
+                    }
+                ),
+                Tool(
+                    name="set_work_package_parent",
+                    description="Set a parent for a work package (create parent-child relationship)",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "work_package_id": {
+                                "type": "integer",
+                                "description": "Work package ID to become a child"
+                            },
+                            "parent_id": {
+                                "type": "integer",
+                                "description": "Work package ID to become the parent"
+                            }
+                        },
+                        "required": ["work_package_id", "parent_id"]
+                    }
+                ),
+                Tool(
+                    name="remove_work_package_parent",
+                    description="Remove parent relationship from a work package (make it top-level)",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "work_package_id": {
+                                "type": "integer",
+                                "description": "Work package ID to remove parent from"
+                            }
+                        },
+                        "required": ["work_package_id"]
+                    }
+                ),
+                Tool(
+                    name="list_work_package_children",
+                    description="List all child work packages of a parent",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "parent_id": {
+                                "type": "integer",
+                                "description": "Parent work package ID"
+                            },
+                            "include_descendants": {
+                                "type": "boolean",
+                                "description": "Include grandchildren and all descendants (default: false)",
+                                "default": False
+                            }
+                        },
+                        "required": ["parent_id"]
+                    }
+                ),
+                Tool(
+                    name="create_work_package_relation",
+                    description="Create a relationship between work packages",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "from_id": {
+                                "type": "integer",
+                                "description": "Source work package ID"
+                            },
+                            "to_id": {
+                                "type": "integer",
+                                "description": "Target work package ID"
+                            },
+                            "relation_type": {
+                                "type": "string",
+                                "description": "Relation type",
+                                "enum": ["blocks", "follows", "precedes", "relates", "duplicates", "includes", "requires", "partof"]
+                            },
+                            "lag": {
+                                "type": "integer",
+                                "description": "Lag in working days (optional, for follows/precedes)"
+                            },
+                            "description": {
+                                "type": "string",
+                                "description": "Optional description of the relation"
+                            }
+                        },
+                        "required": ["from_id", "to_id", "relation_type"]
+                    }
+                ),
+                Tool(
+                    name="list_work_package_relations",
+                    description="List work package relations with optional filtering",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "work_package_id": {
+                                "type": "integer",
+                                "description": "Filter relations involving this work package ID (optional)"
+                            },
+                            "relation_type": {
+                                "type": "string",
+                                "description": "Filter by relation type (optional)",
+                                "enum": ["blocks", "follows", "precedes", "relates", "duplicates", "includes", "requires", "partof"]
+                            }
+                        }
+                    }
+                ),
+                Tool(
+                    name="update_work_package_relation",
+                    description="Update an existing work package relation",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "relation_id": {
+                                "type": "integer",
+                                "description": "Relation ID"
+                            },
+                            "relation_type": {
+                                "type": "string",
+                                "description": "New relation type (optional)",
+                                "enum": ["blocks", "follows", "precedes", "relates", "duplicates", "includes", "requires", "partof"]
+                            },
+                            "lag": {
+                                "type": "integer",
+                                "description": "Lag in working days (optional, for follows/precedes)"
+                            },
+                            "description": {
+                                "type": "string",
+                                "description": "Optional description of the relation"
+                            }
+                        },
+                        "required": ["relation_id"]
+                    }
+                ),
+                Tool(
+                    name="delete_work_package_relation",
+                    description="Delete a work package relation",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "relation_id": {
+                                "type": "integer",
+                                "description": "Relation ID"
+                            }
+                        },
+                        "required": ["relation_id"]
+                    }
+                ),
+                Tool(
+                    name="get_work_package_relation",
+                    description="Get detailed information about a specific work package relation",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "relation_id": {
+                                "type": "integer",
+                                "description": "Relation ID"
+                            }
+                        },
+                        "required": ["relation_id"]
                     }
                 )
             ]
@@ -2346,6 +2693,187 @@ class OpenProjectMCPServer:
                         permissions = result["permissions"]
                         if permissions:
                             text += f"- **Permissions**: {len(permissions)} permissions assigned\n"
+
+                    return [TextContent(type="text", text=text)]
+
+                elif name == "set_work_package_parent":
+                    work_package_id = arguments["work_package_id"]
+                    parent_id = arguments["parent_id"]
+
+                    result = await self.client.set_work_package_parent(work_package_id, parent_id)
+
+                    text = f"✅ Parent relationship created successfully:\n\n"
+                    text += f"- **Child Work Package**: #{work_package_id}\n"
+                    text += f"- **Parent Work Package**: #{parent_id}\n"
+                    text += f"- **Subject**: {result.get('subject', 'N/A')}\n"
+
+                    if "_links" in result and "parent" in result["_links"]:
+                        parent_href = result["_links"]["parent"].get("href", "")
+                        text += f"- **Parent Link**: {parent_href}\n"
+
+                    return [TextContent(type="text", text=text)]
+
+                elif name == "remove_work_package_parent":
+                    work_package_id = arguments["work_package_id"]
+
+                    result = await self.client.remove_work_package_parent(work_package_id)
+
+                    text = f"✅ Parent relationship removed successfully:\n\n"
+                    text += f"- **Work Package**: #{work_package_id} is now top-level\n"
+                    text += f"- **Subject**: {result.get('subject', 'N/A')}\n"
+
+                    return [TextContent(type="text", text=text)]
+
+                elif name == "list_work_package_children":
+                    parent_id = arguments["parent_id"]
+                    include_descendants = arguments.get("include_descendants", False)
+
+                    result = await self.client.list_work_package_children(parent_id, include_descendants)
+                    children = result.get("_embedded", {}).get("elements", [])
+
+                    if not children:
+                        text = f"No {'descendants' if include_descendants else 'children'} found for work package #{parent_id}."
+                    else:
+                        text = f"**{'Descendants' if include_descendants else 'Children'} of Work Package #{parent_id} ({len(children)}):**\n\n"
+                        for child in children:
+                            text += f"- **#{child.get('id', 'N/A')}**: {child.get('subject', 'No subject')}\n"
+
+                            # Show type and status if available
+                            if "_embedded" in child:
+                                embedded = child["_embedded"]
+                                if "type" in embedded:
+                                    text += f"  Type: {embedded['type'].get('name', 'Unknown')}\n"
+                                if "status" in embedded:
+                                    text += f"  Status: {embedded['status'].get('name', 'Unknown')}\n"
+                            text += "\n"
+
+                    return [TextContent(type="text", text=text)]
+
+                elif name == "create_work_package_relation":
+                    data = {
+                        "from_id": arguments["from_id"],
+                        "to_id": arguments["to_id"],
+                        "relation_type": arguments["relation_type"]
+                    }
+
+                    # Add optional fields
+                    for field in ["lag", "description"]:
+                        if field in arguments:
+                            data[field] = arguments[field]
+
+                    result = await self.client.create_work_package_relation(data)
+
+                    text = f"✅ Work package relation created successfully:\n\n"
+                    text += f"- **Relation ID**: #{result.get('id', 'N/A')}\n"
+                    text += f"- **Type**: {result.get('type', 'N/A')}\n"
+                    text += f"- **From**: Work Package #{arguments['from_id']}\n"
+                    text += f"- **To**: Work Package #{arguments['to_id']}\n"
+
+                    if "lag" in result:
+                        text += f"- **Lag**: {result.get('lag', 0)} working days\n"
+                    if "description" in result:
+                        text += f"- **Description**: {result.get('description', 'N/A')}\n"
+
+                    return [TextContent(type="text", text=text)]
+
+                elif name == "list_work_package_relations":
+                    filters = None
+                    filter_conditions = []
+
+                    if "work_package_id" in arguments:
+                        wp_id = arguments["work_package_id"]
+                        filter_conditions.append({"involved": {"operator": "=", "values": [str(wp_id)]}})
+
+                    if "relation_type" in arguments:
+                        rel_type = arguments["relation_type"]
+                        filter_conditions.append({"type": {"operator": "=", "values": [rel_type]}})
+
+                    if filter_conditions:
+                        filters = json.dumps(filter_conditions)
+
+                    result = await self.client.list_work_package_relations(filters)
+                    relations = result.get("_embedded", {}).get("elements", [])
+
+                    if not relations:
+                        text = "No work package relations found."
+                    else:
+                        text = f"**Work Package Relations ({len(relations)}):**\n\n"
+                        for relation in relations:
+                            text += f"- **#{relation.get('id', 'N/A')}**: {relation.get('type', 'Unknown')} relation\n"
+
+                            if "_embedded" in relation:
+                                embedded = relation["_embedded"]
+                                if "from" in embedded and "to" in embedded:
+                                    from_wp = embedded["from"]
+                                    to_wp = embedded["to"]
+                                    text += f"  From: #{from_wp.get('id', 'N/A')} - {from_wp.get('subject', 'No subject')}\n"
+                                    text += f"  To: #{to_wp.get('id', 'N/A')} - {to_wp.get('subject', 'No subject')}\n"
+
+                            if "lag" in relation:
+                                text += f"  Lag: {relation.get('lag', 0)} working days\n"
+                            if "description" in relation:
+                                text += f"  Description: {relation.get('description', 'N/A')}\n"
+                            text += "\n"
+
+                    return [TextContent(type="text", text=text)]
+
+                elif name == "update_work_package_relation":
+                    relation_id = arguments["relation_id"]
+
+                    # Prepare update data
+                    update_data = {}
+                    for field in ["relation_type", "lag", "description"]:
+                        if field in arguments:
+                            update_data[field] = arguments[field]
+
+                    if not update_data:
+                        return [TextContent(type="text", text="❌ No fields provided to update.")]
+
+                    result = await self.client.update_work_package_relation(relation_id, update_data)
+
+                    text = f"✅ Work package relation #{relation_id} updated successfully:\n\n"
+                    text += f"- **Type**: {result.get('type', 'N/A')}\n"
+
+                    if "lag" in result:
+                        text += f"- **Lag**: {result.get('lag', 0)} working days\n"
+                    if "description" in result:
+                        text += f"- **Description**: {result.get('description', 'N/A')}\n"
+
+                    return [TextContent(type="text", text=text)]
+
+                elif name == "delete_work_package_relation":
+                    relation_id = arguments["relation_id"]
+
+                    success = await self.client.delete_work_package_relation(relation_id)
+
+                    if success:
+                        text = f"✅ Work package relation #{relation_id} deleted successfully."
+                    else:
+                        text = f"❌ Failed to delete work package relation #{relation_id}."
+
+                    return [TextContent(type="text", text=text)]
+
+                elif name == "get_work_package_relation":
+                    relation_id = arguments["relation_id"]
+                    result = await self.client.get_work_package_relation(relation_id)
+
+                    text = f"**Work Package Relation Details:**\n\n"
+                    text += f"- **ID**: #{result.get('id', 'N/A')}\n"
+                    text += f"- **Type**: {result.get('type', 'N/A')}\n"
+                    text += f"- **Reverse Type**: {result.get('reverseType', 'N/A')}\n"
+
+                    if "_embedded" in result:
+                        embedded = result["_embedded"]
+                        if "from" in embedded and "to" in embedded:
+                            from_wp = embedded["from"]
+                            to_wp = embedded["to"]
+                            text += f"- **From**: #{from_wp.get('id', 'N/A')} - {from_wp.get('subject', 'No subject')}\n"
+                            text += f"- **To**: #{to_wp.get('id', 'N/A')} - {to_wp.get('subject', 'No subject')}\n"
+
+                    if "lag" in result:
+                        text += f"- **Lag**: {result.get('lag', 0)} working days\n"
+                    if "description" in result:
+                        text += f"- **Description**: {result.get('description', 'N/A')}\n"
 
                     return [TextContent(type="text", text=text)]
 
