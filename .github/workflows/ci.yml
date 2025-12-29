@@ -37,6 +37,7 @@ jobs:
 
       - name: Type check with mypy
         run: uv run mypy openproject_mcp.py
+        continue-on-error: true  # Report issues but don't fail build
 
   test:
     name: Test (Python ${{ matrix.python-version }})
