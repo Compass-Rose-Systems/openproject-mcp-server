@@ -24,7 +24,19 @@ A Model Context Protocol (MCP) server that provides seamless integration with [O
 
 ## Installation
 
-### 1. Install uv (if not already installed)
+### Option 1: Using uvx (Recommended - No Cloning Required)
+
+**Coming Soon:** Once published to PyPI, you'll be able to install with:
+
+```bash
+uvx openproject-mcp-server
+```
+
+For now, you can build and install locally (see Option 2).
+
+### Option 2: Install from Source
+
+#### 1. Install uv (if not already installed)
 
 **macOS/Linux:**
 ```bash
@@ -41,37 +53,26 @@ powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 pip install uv
 ```
 
-### 2. Clone and Setup the Project
+#### 2. Clone and Setup the Project
 
 ```bash
-git clone https://github.com/yourusername/openproject-mcp.git
-cd openproject-mcp
+git clone https://github.com/yourusername/openproject-mcp-server.git
+cd openproject-mcp-server
 ```
 
-### 3. Create Virtual Environment and Install Dependencies
+#### 3. Build and Install
 
 ```bash
-# Create virtual environment and install dependencies in one command
-uv sync
+# Build the package
+uv build
+
+# Install it
+pip install dist/openproject_mcp_server-1.0.0-py3-none-any.whl
 ```
 
-**Alternative (manual steps):**
-```bash
-# Create virtual environment
-uv venv
+#### 4. Configure Environment
 
-# Install dependencies
-uv pip install -r requirements.txt
-```
-
-### 4. Configure Environment
-
-```bash
-# Copy the environment template
-cp env_example.txt .env
-```
-
-Edit `.env` and add your OpenProject configuration:
+Create a `.env` file with your OpenProject configuration:
 ```env
 OPENPROJECT_URL=https://your-instance.openproject.com
 OPENPROJECT_API_KEY=your-api-key-here
@@ -117,43 +118,80 @@ python openproject-mcp.py
 
 **Note:** If you renamed the file from `openproject_mcp_server.py`, update your configuration accordingly.
 
-### Integration with Claude Desktop
+### Integration with Claude Code
 
-Add this configuration to your Claude Desktop config file:
+Add this configuration to your Claude Code MCP settings file:
 
-**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`  
-**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+**File location**: `~/.config/claude-code/mcp_settings.json`
 
+**If installed via pip/uvx:**
 ```json
 {
   "mcpServers": {
     "openproject": {
-      "command": "/path/to/your/project/.venv/bin/python",
-      "args": ["/path/to/your/project/openproject-mcp.py"]
+      "command": "openproject-mcp-server",
+      "env": {
+        "OPENPROJECT_URL": "https://your-instance.openproject.com",
+        "OPENPROJECT_API_KEY": "your-api-key-here"
+      }
     }
   }
 }
 ```
 
-**Note:** Replace `/path/to/your/project/` with the actual path to your project directory.
+**Alternative (using uvx without installation):**
+```json
+{
+  "mcpServers": {
+    "openproject": {
+      "command": "uvx",
+      "args": ["openproject-mcp-server"],
+      "env": {
+        "OPENPROJECT_URL": "https://your-instance.openproject.com",
+        "OPENPROJECT_API_KEY": "your-api-key-here"
+      }
+    }
+  }
+}
+```
 
-**Alternative with uv (if uv is in your system PATH):**
+### Integration with Claude Desktop
+
+Add this configuration to your Claude Desktop config file:
+
+**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+
+**If installed via pip:**
+```json
+{
+  "mcpServers": {
+    "openproject": {
+      "command": "openproject-mcp-server",
+      "env": {
+        "OPENPROJECT_URL": "https://your-instance.openproject.com",
+        "OPENPROJECT_API_KEY": "your-api-key-here"
+      }
+    }
+  }
+}
+```
+
+**Alternative (from source):**
 ```json
 {
   "mcpServers": {
     "openproject": {
       "command": "uv",
-      "args": ["run", "python", "/path/to/your/project/openproject-mcp.py"]
+      "args": ["run", "python", "/path/to/your/project/openproject_mcp.py"],
+      "env": {
+        "OPENPROJECT_URL": "https://your-instance.openproject.com",
+        "OPENPROJECT_API_KEY": "your-api-key-here"
+      }
     }
   }
 }
 ```
-
-**Why use the direct Python path?**
-The direct Python path approach is more reliable because:
-- It doesn't require `uv` to be in the system PATH
-- It avoids potential issues with `uv run` trying to install the project as a package
-- It's simpler and more straightforward for MCP server configurations
 
 ### Available Tools
 

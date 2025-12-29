@@ -3209,5 +3209,10 @@ async def main():
     await server.run()
 
 
-if __name__ == "__main__":
+def cli_entry():
+    """CLI entry point for uvx/pip installation"""
     asyncio.run(main())
+
+
+if __name__ == "__main__":
+    cli_entry()
