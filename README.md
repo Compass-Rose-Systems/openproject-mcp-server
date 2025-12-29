@@ -38,12 +38,15 @@ Get your OpenProject API key:
 
 ### Claude Code
 
-**Config file:** `~/.config/claude-code/mcp_settings.json`
+**Config file:** `~/.claude.json`
+
+Add the MCP server to the `mcpServers` section:
 
 ```json
 {
   "mcpServers": {
     "openproject": {
+      "type": "stdio",
       "command": "uvx",
       "args": ["openproject-mcp"],
       "env": {
@@ -85,23 +88,14 @@ Restart Claude Desktop after saving.
 
 ### Cursor
 
-Cursor provides one-click MCP server installation:
-
-1. Open **Settings** → **Features** → **Model Context Protocol**
-2. Click **Add MCP Server**
-3. Select **Install from npm/PyPI**
-4. Enter: `openproject-mcp`
-5. Add environment variables:
-   - `OPENPROJECT_URL`: Your OpenProject instance URL
-   - `OPENPROJECT_API_KEY`: Your API token
-
-Or manually edit Cursor's config file (`~/.cursor/mcp_settings.json`):
+**Config file:** `~/.cursor/mcp.json` (global) or `.cursor/mcp.json` (project-specific)
 
 ```json
 {
   "mcpServers": {
     "openproject": {
-      "command": "openproject-mcp",
+      "command": "uvx",
+      "args": ["openproject-mcp"],
       "env": {
         "OPENPROJECT_URL": "https://your-instance.openproject.com",
         "OPENPROJECT_API_KEY": "your-api-key-here"
@@ -110,45 +104,57 @@ Or manually edit Cursor's config file (`~/.cursor/mcp_settings.json`):
   }
 }
 ```
+
+You can also configure MCP servers through Cursor's GUI:
+1. Open **Settings** → **Features** → **Model Context Protocol**
+2. Click **Add MCP Server**
+3. Configure the server with the command and environment variables above
 
 ---
 
 ### Zed
 
-**Config file:** `~/.config/zed/mcp_settings.json`
+**Config file locations:**
+- **macOS**: `~/.zed/settings.json`
+- **Linux**: `~/.config/zed/settings.json`
+
+Add to your settings file (open with `cmd-,` on macOS or `ctrl-,` on Linux):
 
 ```json
 {
-  "mcp_servers": {
+  "context_servers": {
     "openproject": {
-      "command": "openproject-mcp",
-      "env": {
-        "OPENPROJECT_URL": "https://your-instance.openproject.com",
-        "OPENPROJECT_API_KEY": "your-api-key-here"
+      "settings": {},
+      "command": {
+        "path": "uvx",
+        "args": ["openproject-mcp"],
+        "env": {
+          "OPENPROJECT_URL": "https://your-instance.openproject.com",
+          "OPENPROJECT_API_KEY": "your-api-key-here"
+        }
       }
     }
   }
 }
 ```
 
-MCP prompts will be available as slash commands in Zed.
+MCP tools will be available through Zed's AI assistant.
 
 ---
 
-### VS Code (with GitHub Copilot Agent Mode)
+### VS Code (with GitHub Copilot)
 
-**Requires**: VS Code with GitHub Copilot extension
+**Requires**: VS Code 1.99+ with GitHub Copilot extension
 
-1. Install the MCP extension for VS Code (if available)
-2. Or configure via VS Code settings:
-
-**Settings file:** `.vscode/settings.json` (project-level) or User Settings
+**Config file:** `.vscode/mcp.json` (workspace) or User Profile's `mcp.json`
 
 ```json
 {
-  "mcp.servers": {
+  "servers": {
     "openproject": {
-      "command": "openproject-mcp",
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["openproject-mcp"],
       "env": {
         "OPENPROJECT_URL": "https://your-instance.openproject.com",
         "OPENPROJECT_API_KEY": "your-api-key-here"
@@ -157,6 +163,8 @@ MCP prompts will be available as slash commands in Zed.
   }
 }
 ```
+
+You can also use the Command Palette: `MCP: Add Server` to configure servers through the GUI.
 
 ---
 
@@ -180,13 +188,41 @@ Or edit the MCP configuration file directly (location varies by IDE).
 
 **Continue** is an open-source AI coding assistant.
 
-**Config file:** `~/.continue/config.json`
+**Config location:** `.continue/mcpServers/` folder in your workspace
+
+Create a file `.continue/mcpServers/openproject.json`:
+
+```json
+{
+  "name": "openproject",
+  "version": "1.0.0",
+  "schema": "1.0.0",
+  "type": "stdio",
+  "command": "uvx",
+  "args": ["openproject-mcp"],
+  "env": {
+    "OPENPROJECT_URL": "https://your-instance.openproject.com",
+    "OPENPROJECT_API_KEY": "your-api-key-here"
+  }
+}
+```
+
+Alternatively, you can use YAML format (`.continue/mcpServers/openproject.yaml`) which is the preferred format in newer versions.
+
+---
+
+### Windsurf
+
+**Config file locations:**
+- **macOS/Linux**: `~/.codeium/windsurf/mcp_config.json`
+- **Windows**: `%USERPROFILE%\.codeium\windsurf\mcp_config.json`
 
 ```json
 {
   "mcpServers": {
     "openproject": {
-      "command": "openproject-mcp",
+      "command": "uvx",
+      "args": ["openproject-mcp"],
       "env": {
         "OPENPROJECT_URL": "https://your-instance.openproject.com",
         "OPENPROJECT_API_KEY": "your-api-key-here"
@@ -196,27 +232,9 @@ Or edit the MCP configuration file directly (location varies by IDE).
 }
 ```
 
----
-
-### Windsurf (formerly Codeium)
-
-**Config file:** Check Windsurf/Codeium documentation for MCP configuration location.
-
-```json
-{
-  "mcp": {
-    "servers": {
-      "openproject": {
-        "command": "openproject-mcp",
-        "env": {
-          "OPENPROJECT_URL": "https://your-instance.openproject.com",
-          "OPENPROJECT_API_KEY": "your-api-key-here"
-        }
-      }
-    }
-  }
-}
-```
+You can also access this through Windsurf's GUI:
+1. Go to **Settings** → **Manage MCPs**
+2. Click **View raw config** to edit the `mcp_config.json` file
 
 ---
 
