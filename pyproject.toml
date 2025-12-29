@@ -1,10 +1,10 @@
 [project]
-name = "openproject-mcp-server"
+name = "openproject-mcp"
 version = "1.0.0"
 description = "A Model Context Protocol (MCP) server for OpenProject API v3 integration"
 authors = [
-    {name = "AndyEverything"},
-    {name = "cleanspin"}
+    {name = "cleanspin"},
+    {name = "AndyEverything"}
 ]
 readme = "README.md"
 license = {text = "MIT"}
@@ -28,7 +28,7 @@ dependencies = [
 ]
 
 [project.scripts]
-openproject-mcp-server = "openproject_mcp:cli_entry"
+openproject-mcp = "openproject_mcp:cli_entry"
 
 [project.optional-dependencies]
 dev = [
